@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisk Prompt Automator</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <img src="icons/icon-32.png" alt="Whisk Automator">
+                <h1>Whisk Automator</h1>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <div class="section">
+                <label for="prompts-textarea" class="label">Lista de Prompts:</label>
+                <textarea 
+                    id="prompts-textarea" 
+                    class="textarea" 
+                    placeholder="Digite seus prompts, um por linha...&#10;&#10;Exemplo:&#10;Um gato laranja sentado em uma janela&#10;Uma paisagem montanhosa ao pôr do sol&#10;Um robô futurista em uma cidade cyberpunk"
+                    rows="10"
+                ></textarea>
+            </div>
+            
+            <div class="section">
+                <label for="delay-input" class="label">Delay entre envios (segundos):</label>
+                <input 
+                    type="number" 
+                    id="delay-input" 
+                    class="input" 
+                    value="20" 
+                    min="1" 
+                    max="300"
+                >
+            </div>
+
+            <div class="section">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="toggle-randomize">
+                    <label for="toggle-randomize" class="label">Randomize Proporção</label>
+                </div>
+                <div id="randomize-section" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="random-all">
+                        <label for="random-all" class="label">Random (usar todas as opções abaixo)</label>
+                    </div>
+                    <hr style="margin: 8px 0;">
+                    <div id="random-options-group">
+                        <label class="label" style="margin-bottom: 5px; display: block;">Ou escolha quais incluir no sorteio:</label>
+                        <div class="checkbox-container">
+                            <input type="checkbox" class="random-option" value="1:1" id="random-1-1">
+                            <label for="random-1-1" class="label-small">Square (1:1)</label>
+                        </div>
+                        <div class="checkbox-container">
+                            <input type="checkbox" class="random-option" value="9:16" id="random-9-16">
+                            <label for="random-9-16" class="label-small">Portrait (9:16)</label>
+                        </div>
+                        <div class="checkbox-container">
+                            <input type="checkbox" class="random-option" value="16:9" id="random-16-9">
+                            <label for="random-16-9" class="label-small">Landscape (16:9)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section download-settings">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="auto-download-checkbox">
+                    <label for="auto-download-checkbox" class="label">Baixar imagens automaticamente</label>
+                </div>
+                <div id="specificDownloadFolderSection" style="margin-top: 10px;">
+                    <label for="downloadSubfolderName" class="label">Salvar na subpasta (em Downloads):</label>
+                    <div style="display: flex;">
+                        <input type="text" id="downloadSubfolderName" placeholder="Nome da subpasta (opcional)" class="input" style="flex-grow: 1; margin-right: 5px;">
+                        <button id="saveDownloadFolder" class="btn">Salvar</button>
+                    </div>
+                    <div id="downloadFolderStatus" style="font-size: 12px; margin-top: 5px;"></div>
+                </div>
+            </div>
+            
+            <div class="automation-controls">
+                <button id="start-btn" class="btn btn-primary">
+                    ▶️ Iniciar Automação
+                </button>
+                <button id="stop-btn" class="btn btn-danger" disabled>
+                    ⏹️ Parar Automação
+                </button>
+            </div>
+            
+            <div class="status">
+                <div id="status-text" class="status-text">Pronto para iniciar</div>
+                <div id="progress-info" class="progress-info"></div>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <p>Automatiza prompts para Google Whisk</p>
+        </footer>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
+
