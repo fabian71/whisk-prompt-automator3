@@ -51,62 +51,77 @@ async function sendMessageWithRetry(tabId, message, maxRetries = 3) {
         throw new Error(`Content script não está pronto na aba ${tabId}`);
       }
 
-      // Tentar enviar a mensagem
-      await chrome.tabs.sendMessage(tabId, message);
-      return true;
+      // Tentar enviar a mensagem - wrap in promise to handle properly
+      return new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, message, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
     } catch (error) {
       console.warn(`Tentativa ${attempt}/${maxRetries} falhou:`, error.message);
-      
+
       if (attempt === maxRetries) {
         throw error;
       }
-      
+
       // Aguardar antes da próxima tentativa
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
   }
 }
 
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "startAutomation") {
-    try {
-      const tabs = await chrome.tabs.query({active: true, currentWindow: true});
-      const currentTab = tabs[0];
-      
-      if (!currentTab || !currentTab.url.includes("labs.google")) {
-        throw new Error("Abra a página do Google Whisk primeiro!");
-      }
+    // Handle async operation properly
+    (async () => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const currentTab = tabs[0];
 
-      await sendMessageWithRetry(currentTab.id, {
-        action: "startAutomation",
-        prompts: request.prompts,
-        delay: request.delay,
-        settings: request.settings // Forward the settings object
-      });
+        if (!currentTab || !currentTab.url.includes("labs.google")) {
+          throw new Error("Abra a página do Google Whisk primeiro!");
+        }
 
-    } catch (error) {
-      console.error('Erro ao iniciar automação:', error);
-      // Enviar erro de volta para o popup
-      chrome.runtime.sendMessage({
-        action: 'automationError',
-        error: error.message
-      }).catch(() => {}); // Ignorar erro se popup não estiver aberto
-    }
-  }
-  
-  if (request.action === "stopAutomation") {
-    try {
-      const tabs = await chrome.tabs.query({active: true, currentWindow: true});
-      const currentTab = tabs[0];
-      
-      if (currentTab && currentTab.url.includes("labs.google")) {
         await sendMessageWithRetry(currentTab.id, {
-          action: "stopAutomation"
+          action: "startAutomation",
+          prompts: request.prompts,
+          delay: request.delay,
+          settings: request.settings // Forward the settings object
         });
+
+      } catch (error) {
+        console.error('Erro ao iniciar automação:', error);
+        // Enviar erro de volta para o popup
+        chrome.runtime.sendMessage({
+          action: 'automationError',
+          error: error.message
+        }).catch(() => { }); // Ignorar erro se popup não estiver aberto
       }
-    } catch (error) {
-      console.error('Erro ao parar automação:', error);
-    }
+    })();
+    return false; // Don't keep channel open
+  }
+
+  if (request.action === "stopAutomation") {
+    // Handle async operation properly
+    (async () => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const currentTab = tabs[0];
+
+        if (currentTab && currentTab.url.includes("labs.google")) {
+          await sendMessageWithRetry(currentTab.id, {
+            action: "stopAutomation"
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao parar automação:', error);
+      }
+    })();
+    return false; // Don't keep channel open
   }
 
   // Ping do content script para confirmar que está pronto
@@ -115,10 +130,10 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   }
 
   // Repassar mensagens do content script para o popup
-  if (request.action === "updateStatus" || 
-      request.action === "automationComplete" || 
-      request.action === "automationError") {
-    
+  if (request.action === "updateStatus" ||
+    request.action === "automationComplete" ||
+    request.action === "automationError") {
+
     // Tentar enviar para o popup (pode não estar aberto)
     chrome.runtime.sendMessage(request).catch(() => {
       // Ignorar erro se popup não estiver aberto
@@ -126,44 +141,68 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   }
 
   if (request.action === "downloadImage") {
-    chrome.storage.local.get(['autoDownload', 'downloadSubfolder']).then(settings => {
-        if (settings.autoDownload) {
-            const subfolder = settings.downloadSubfolder ? settings.downloadSubfolder.trim() : '';
+    chrome.storage.local.get(['autoDownload', 'downloadSubfolder', 'savePromptTxt']).then(settings => {
+      if (settings.autoDownload) {
+        const subfolder = settings.downloadSubfolder ? settings.downloadSubfolder.trim() : '';
 
-            // Limpa o nome do arquivo para evitar caracteres inválidos
-            const safePrompt = request.prompt
-                .replace(/[\\/:*?"<>|]/g, '_') // Substitui caracteres inválidos
-                .replace(/[^a-zA-Z0-9_\s\-]/g, '') // Remove outros caracteres não comuns
-                .trim()
-                .substring(0, 100);
-            
-            let filename = `${safePrompt}_${Date.now()}.png`;
+        // Limpa o nome do arquivo para evitar caracteres inválidos
+        const safePrompt = request.prompt
+          .replace(/[\\/:*?"<>|]/g, '_') // Substitui caracteres inválidos
+          .replace(/[^a-zA-Z0-9_\s\-]/g, '') // Remove outros caracteres não comuns
+          .trim()
+          .substring(0, 100);
 
-            // Adiciona a subpasta se ela existir
-            if (subfolder) {
-                // Usa / como separador. O Chrome trata isso corretamente em todos os SOs.
-                filename = `${subfolder}/${filename}`;
-            }
+        // Gera timestamp único para este download
+        const timestamp = Date.now();
+        let filename = `${safePrompt}_${timestamp}.png`;
 
-            chrome.downloads.download({
-                url: request.url,
-                filename: filename
-            }, (downloadId) => {
-                if (chrome.runtime.lastError) {
-                    console.error(`Falha ao baixar imagem: ${chrome.runtime.lastError.message}`, `Caminho: ${filename}`);
-                    chrome.runtime.sendMessage({ 
-                        action: 'updateStatus', 
-                        message: `Erro ao salvar: ${chrome.runtime.lastError.message.split(': ')[1]}`,
-                        type: 'error'
-                    });
-                }
-            });
+        // Adiciona a subpasta se ela existir
+        if (subfolder) {
+          // Usa / como separador. O Chrome trata isso corretamente em todos os SOs.
+          filename = `${subfolder}/${filename}`;
         }
+
+        // Baixa a imagem
+        chrome.downloads.download({
+          url: request.url,
+          filename: filename
+        }, (downloadId) => {
+          if (chrome.runtime.lastError) {
+            console.error(`Falha ao baixar imagem: ${chrome.runtime.lastError.message}`, `Caminho: ${filename}`);
+            chrome.runtime.sendMessage({
+              action: 'updateStatus',
+              message: `Erro ao salvar: ${chrome.runtime.lastError.message.split(': ')[1]}`,
+              type: 'error'
+            });
+          } else {
+            // Se a opção de salvar prompt em .txt estiver ativada
+            if (settings.savePromptTxt) {
+              // Cria arquivo .txt com o mesmo nome
+              const txtFilename = filename.replace('.png', '.txt');
+
+              // Converte o prompt para Data URL (compatível com service workers)
+              const textContent = request.prompt;
+              const dataUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(textContent);
+
+              // Baixa o arquivo .txt
+              chrome.downloads.download({
+                url: dataUrl,
+                filename: txtFilename
+              }, (txtDownloadId) => {
+                if (chrome.runtime.lastError) {
+                  console.error(`Falha ao baixar arquivo .txt: ${chrome.runtime.lastError.message}`);
+                } else {
+                  console.log(`Arquivo .txt salvo: ${txtFilename}`);
+                }
+              });
+            }
+          }
+        });
+      }
     });
   }
-  
-  // Para MV3, retornar true para manter o canal de mensagem aberto
-  return true;
+
+  return false; // Don't keep message channel open
 });
 
 // Limpar estado quando aba é fechada

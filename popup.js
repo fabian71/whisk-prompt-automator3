@@ -1,4 +1,11 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+    // Set version from manifest
+    const manifest = chrome.runtime.getManifest();
+    const appTitle = document.getElementById('app-title');
+    if (appTitle) {
+        appTitle.textContent = `Whisk Automator ${manifest.version}`;
+    }
+
     // --- Element Declarations ---
     const promptsTextarea = document.getElementById('prompts-textarea');
     const delayInput = document.getElementById('delay-input');
@@ -13,6 +20,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadSubfolderName = document.getElementById('downloadSubfolderName');
     const saveDownloadFolder = document.getElementById('saveDownloadFolder');
     const downloadFolderStatus = document.getElementById('downloadFolderStatus');
+    const imagesPerPromptSelect = document.getElementById('images-per-prompt');
+    const savePromptTxtCheckbox = document.getElementById('save-prompt-txt');
+    const savePromptTxtSection = document.getElementById('save-prompt-txt-section');
 
     // --- Randomize Elements ---
     const randomizeToggle = document.getElementById('toggle-randomize');
@@ -22,18 +32,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let isRunning = false;
 
+    // --- Function to sync state with content script ---
+    async function checkAutomationState() {
+        try {
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tabs[0] && tabs[0].url && tabs[0].url.includes('labs.google')) {
+                const response = await chrome.tabs.sendMessage(tabs[0].id, { action: 'getAutomationState' });
+                if (response && response.isRunning) {
+                    isRunning = true;
+                    updateUI();
+                    if (response.totalPrompts > 0) {
+                        progressInfo.textContent = `Prompt ${response.currentIndex + 1} de ${response.totalPrompts}`;
+                    }
+                }
+            }
+        } catch (error) {
+            // Content script may not be loaded yet, ignore
+            console.log('Não foi possível verificar estado da automação:', error.message);
+        }
+    }
+
     // --- Function Definitions ---
 
     function loadSettings() {
         const keys = [
             'prompts', 'delay', 'autoDownload', 'downloadSubfolder',
-            'randomizeToggle', 'randomizeAll', 'randomizeOptions'
+            'randomizeToggle', 'randomizeAll', 'randomizeOptions', 'imagesPerPrompt', 'savePromptTxt'
         ];
         chrome.storage.local.get(keys).then((result) => {
             promptsTextarea.value = result.prompts || '';
             delayInput.value = result.delay || 20;
             autoDownloadCheckbox.checked = result.autoDownload || false;
             downloadSubfolderName.value = result.downloadSubfolder || '';
+            imagesPerPromptSelect.value = result.imagesPerPrompt || '2';
+            savePromptTxtCheckbox.checked = result.savePromptTxt || false;
+
             if (result.downloadSubfolder) {
                 downloadFolderStatus.textContent = `Salvo em: 'Downloads/${result.downloadSubfolder}'`;
             }
@@ -50,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             updateRandomizeUI();
+            updateSavePromptTxtVisibility();
         }).catch(error => console.error('Erro ao carregar dados:', error));
     }
 
@@ -66,7 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
             downloadSubfolder: downloadSubfolderName.value.trim(),
             randomizeToggle: randomizeToggle.checked,
             randomizeAll: randomAllCheckbox.checked,
-            randomizeOptions: randomizeOptions
+            randomizeOptions: randomizeOptions,
+            imagesPerPrompt: parseInt(imagesPerPromptSelect.value) || 2,
+            savePromptTxt: savePromptTxtCheckbox.checked
         }).catch(error => console.error('Erro no auto-save:', error));
     }
 
@@ -79,6 +115,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 box.checked = true;
             }
         });
+    }
+
+    function updateSavePromptTxtVisibility() {
+        savePromptTxtSection.style.display = autoDownloadCheckbox.checked ? 'block' : 'none';
+        // Se desmarcar auto-download, também desmarca save-prompt-txt
+        if (!autoDownloadCheckbox.checked) {
+            savePromptTxtCheckbox.checked = false;
+        }
     }
 
     async function startAutomation() {
@@ -121,7 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 delay: parseInt(delayInput.value) || 20,
                 settings: {
                     randomize: randomizeToggle.checked,
-                    aspectRatios: ratiosToRandomize
+                    aspectRatios: ratiosToRandomize,
+                    imagesPerPrompt: parseInt(imagesPerPromptSelect.value) || 2
                 }
             });
 
@@ -198,6 +243,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Event Listeners ---
     loadSettings();
+    checkAutomationState(); // Check if automation is already running
+
+    // Update save prompt txt visibility on load
+    updateSavePromptTxtVisibility();
 
     startBtn.addEventListener('click', startAutomation);
     stopBtn.addEventListener('click', stopAutomation);
@@ -205,12 +254,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const elementsToAutoSave = [
         promptsTextarea, delayInput, autoDownloadCheckbox,
-        randomizeToggle, randomAllCheckbox, ...randomOptionCheckboxes
+        randomizeToggle, randomAllCheckbox, imagesPerPromptSelect, savePromptTxtCheckbox, ...randomOptionCheckboxes
     ];
     elementsToAutoSave.forEach(el => {
         const eventType = el.type === 'textarea' || el.type === 'number' ? 'input' : 'change';
         el.addEventListener(eventType, saveSettings);
     });
+
+    // Add listener to auto-download checkbox to toggle save-prompt-txt visibility
+    autoDownloadCheckbox.addEventListener('change', updateSavePromptTxtVisibility);
 
     randomizeToggle.addEventListener('change', updateRandomizeUI);
     randomAllCheckbox.addEventListener('change', () => {
