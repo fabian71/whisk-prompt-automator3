@@ -2,113 +2,237 @@
 <html lang="pt-BR">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whisk Prompt Automator</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Prompt Automator</title>
+  <style>
+    :root {
+      --primary-color: #6200ea;
+      --primary-hover: #3700b3;
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --border-color: #e0e0e0;
+    }
+
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: var(--primary-color);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      resize: vertical;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f5f5f5;
+      padding: 8px;
+      border-radius: 6px;
+    }
+
+    .checkbox-group input {
+      margin: 0;
+    }
+
+    .checkbox-group label {
+      font-weight: normal;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.2s;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #stopBtn {
+      background-color: #d32f2f;
+      display: none;
+    }
+
+    #stopBtn:hover {
+      background-color: #b71c1c;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 12px;
+      text-align: center;
+      color: #666;
+      padding: 8px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      min-height: 20px;
+    }
+
+    .footer {
+      margin-top: 16px;
+      font-size: 10px;
+      text-align: center;
+      color: #999;
+      border-top: 1px solid #eee;
+      padding-top: 8px;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <img src="icons/icon-32.png" alt="Whisk Automator">
-                <h1 id="app-title">Whisk Automator</h1>
-            </div>
-        </header>
+  <h1>
+    <img src="icons/icon-48.png" width="24" height="24" alt="Icon">
+    Flow Automator
+  </h1>
 
-        <main class="main-content">
-            <div class="section">
-                <label for="prompts-textarea" class="label">Lista de Prompts:</label>
-                <textarea id="prompts-textarea" class="textarea"
-                    placeholder="Digite seus prompts, um por linha...&#10;&#10;Exemplo:&#10;Um gato laranja sentado em uma janela&#10;Uma paisagem montanhosa ao pôr do sol&#10;Um robô futurista em uma cidade cyberpunk"
-                    rows="10"></textarea>
-            </div>
-
-            <div class="section">
-                <label for="delay-input" class="label">Delay entre envios (segundos):</label>
-                <input type="number" id="delay-input" class="input" value="20" min="1" max="300">
-            </div>
-
-            <div class="section">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="toggle-randomize">
-                    <label for="toggle-randomize" class="label">Randomize Proporção</label>
-                </div>
-                <div id="randomize-section"
-                    style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <div class="checkbox-container">
-                        <input type="checkbox" id="random-all">
-                        <label for="random-all" class="label">Random (usar todas as opções abaixo)</label>
-                    </div>
-                    <hr style="margin: 8px 0;">
-                    <div id="random-options-group">
-                        <label class="label" style="margin-bottom: 5px; display: block;">Ou escolha quais incluir no
-                            sorteio:</label>
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="random-option" value="1:1" id="random-1-1">
-                            <label for="random-1-1" class="label-small">Square (1:1)</label>
-                        </div>
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="random-option" value="9:16" id="random-9-16">
-                            <label for="random-9-16" class="label-small">Portrait (9:16)</label>
-                        </div>
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="random-option" value="16:9" id="random-16-9">
-                            <label for="random-16-9" class="label-small">Landscape (16:9)</label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section download-settings">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="auto-download-checkbox">
-                    <label for="auto-download-checkbox" class="label">Baixar imagens automaticamente</label>
-                </div>
-                <div class="checkbox-container" id="save-prompt-txt-section" style="margin-left: 20px; display: none;">
-                    <input type="checkbox" id="save-prompt-txt">
-                    <label for="save-prompt-txt" class="label">Salvar prompt em arquivo .txt</label>
-                </div>
-                <div id="specificDownloadFolderSection" style="margin-top: 10px;">
-                    <label for="downloadSubfolderName" class="label">Salvar na subpasta (em Downloads):</label>
-                    <div style="display: flex;">
-                        <input type="text" id="downloadSubfolderName" placeholder="Nome da subpasta (opcional)"
-                            class="input" style="flex-grow: 1; margin-right: 5px;">
-                        <button id="saveDownloadFolder" class="btn">Salvar</button>
-                    </div>
-                    <div id="downloadFolderStatus" style="font-size: 12px; margin-top: 5px;"></div>
-                </div>
-                <div style="margin-top: 15px;">
-                    <label for="images-per-prompt" class="label">Imagens por prompt:</label>
-                    <select id="images-per-prompt" class="input" style="width: 100%; padding: 8px;">
-                        <option value="1">1 imagem (primeira gerada)</option>
-                        <option value="2" selected>2 imagens (ambas geradas)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="automation-controls">
-                <button id="start-btn" class="btn btn-primary">
-                    ▶️ Iniciar Automação
-                </button>
-                <button id="stop-btn" class="btn btn-danger" disabled>
-                    ⏹️ Parar Automação
-                </button>
-            </div>
-
-            <div class="status">
-                <div id="status-text" class="status-text">Pronto para iniciar</div>
-                <div id="progress-info" class="progress-info"></div>
-            </div>
-        </main>
-
-        <footer class="footer">
-            <p>Automatiza prompts para Google Whisk</p>
-        </footer>
+  <div class="container">
+    <!-- Seletor de Modo: Vídeo ou Imagem -->
+    <div class="input-group">
+      <label for="generationMode">Modo de Geração:</label>
+      <select id="generationMode"
+        style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; box-sizing: border-box;">
+        <option value="TEXT_TO_VIDEO">🎬 Texto para vídeo</option>
+        <option value="IMAGE_GENERATION">🖼️ Criar imagens</option>
+      </select>
     </div>
 
-    <script src="popup.js"></script>
+    <div class="input-group">
+      <label for="prompts">Prompts (um por linha):</label>
+      <textarea id="prompts" placeholder="Digite seus prompts aqui..."></textarea>
+    </div>
+
+    <!-- Opções de Automação -->
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="autoDownload" checked>
+      <label for="autoDownload">Baixar automaticamente</label>
+    </div>
+
+    <div class="checkbox-group" id="upscaleGroup" style="margin-left: 20px; border-left: 2px solid #ccc;">
+      <input type="checkbox" id="upscaleVideo" checked>
+      <label for="upscaleVideo">Fazer Upscale (1080p)</label>
+    </div>
+
+    <div class="input-group">
+      <label for="downloadSubfolder">Nome da Subpasta (dentro de Downloads):</label>
+      <input type="text" id="downloadSubfolder" placeholder="Ex: FlowVideos">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="saveTxtPrompt">
+      <label for="saveTxtPrompt">Salvar prompt em arquivo .txt</label>
+    </div>
+
+    <div class="input-group">
+      <label id="delayLabel" for="delay">Delay entre envios (segundos):</label>
+      <input type="number" id="delay" value="20" min="5">
+    </div>
+
+    <!-- Configurações Especiais -->
+    <div
+      style="margin-top: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
+      <label style="font-weight: bold; margin-bottom: 10px; display: block;">⚙️ Configurações Especiais</label>
+
+      <div class="checkbox-group" style="background: white;">
+        <input type="checkbox" id="breakEnabled">
+        <label for="breakEnabled">Pausar a cada X prompts</label>
+      </div>
+
+      <div id="breakSettings" style="display: none; margin-left: 20px; margin-top: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+          <label for="breakPrompts" style="white-space: nowrap; font-size: 12px;">A cada</label>
+          <input type="number" id="breakPrompts" value="15" min="1" style="width: 70px; padding: 4px;">
+          <span style="font-size: 12px;">prompts</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <label for="breakDuration" style="white-space: nowrap; font-size: 12px;">Pausar por</label>
+          <input type="number" id="breakDuration" value="3" min="1" style="width: 70px; padding: 4px;">
+          <span style="font-size: 12px;">minutos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button id="startBtn" class="btn primary">Iniciar Automação</button>
+      <div id="runningControls" style="display: none; display: flex; gap: 10px; width: 100%;">
+        <button id="pauseBtn" class="btn warning" style="flex: 1;">Pausar</button>
+        <button id="resumeBtn" class="btn primary" style="flex: 1; display: none;">Continuar</button>
+        <button id="cancelBtn" class="btn danger" style="flex: 1;">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="status" class="status">Pronto para iniciar</div>
+  </div>
+
+  <div class="footer">
+    v2.1.0 - Advanced Automation
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 
 </html>
